@@ -1,0 +1,71 @@
+name: 02 - Application CI/CD to EKS
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
+      - 'client/**'
+      - 'kubernetes-files/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build & Push Backend Image
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPO: bookshelf-backend
+        TAG: ${{ github.sha }}
+      run: |
+        docker build -t $REGISTRY/$REPO:$TAG -t $REGISTRY/$REPO:latest ./backend
+        docker push $REGISTRY/$REPO:$TAG
+        docker push $REGISTRY/$REPO:latest
+
+    - name: Build & Push Frontend Image
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPO: bookshelf-frontend
+        TAG: ${{ github.sha }}
+      run: |
+        docker build -t $REGISTRY/$REPO:$TAG -t $REGISTRY/$REPO:latest ./client
+        docker push $REGISTRY/$REPO:$TAG
+        docker push $REGISTRY/$REPO:latest
+
+    - name: Update Kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+    - name: Deploy Manifests & Update Images
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        TAG: ${{ github.sha }}
+      run: |
+        kubectl apply -f kubernetes-files/secret.yaml
+        kubectl apply -f kubernetes-files/configmap.yaml
+        kubectl apply -f kubernetes-files/backend-service.yml
+        kubectl apply -f kubernetes-files/backend-deployment.yaml
+        kubectl set image deployment/backend-deployment backend=$REGISTRY/bookshelf-backend:$TAG
+        
+        kubectl apply -f kubernetes-files/frontend-deployment.yml
+        kubectl set image deployment/frontend-deployment frontend=$REGISTRY/bookshelf-frontend:$TAG
+        
+        kubectl rollout status deployment/backend-deployment --timeout=180s
+        kubectl rollout status deployment/frontend-deployment --timeout=180s
