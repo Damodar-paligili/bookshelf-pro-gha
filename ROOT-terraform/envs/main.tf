@@ -7,11 +7,9 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "bookshelf-terraform-remote-state-prod" # REPLACE with your S3 bucket name
-    key            = "state/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "bookshelf-tf-locks" # REPLACE with your DynamoDB table
-    encrypt        = true
+    # Values are passed dynamically via -backend-config in the pipeline
+    key     = "state/terraform.tfstate"
+    encrypt = true
   }
 }
 
