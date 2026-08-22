@@ -10,5 +10,5 @@ desired_capacity    = 2
 min_capacity        = 1
 max_capacity        = 4
 db_name             = "bookshelf_db"
-db_username         = "adminuser"
-db_password         = "ChangeMeStrongPassword123!"
+db_username         = "admin"
+db_password         = "Damodar123"
