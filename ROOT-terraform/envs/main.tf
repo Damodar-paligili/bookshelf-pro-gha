@@ -10,7 +10,7 @@ terraform {
     bucket         = "bookshelf-terraform-remote-state-prod" # REPLACE with your S3 bucket name
     key            = "state/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "bookshelf-tf-locks"                    # REPLACE with your DynamoDB table
+    dynamodb_table = "bookshelf-tf-locks" # REPLACE with your DynamoDB table
     encrypt        = true
   }
 }
