@@ -29,6 +29,17 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
+    - name: Ensure ECR Repositories Exist
+      run: |
+        for repo in bookshelf-backend bookshelf-frontend; do
+          if ! aws ecr describe-repositories --repository-names "$repo" --region ${{ secrets.AWS_REGION }} 2>/dev/null; then
+            echo "Creating ECR repository: $repo"
+            aws ecr create-repository --repository-name "$repo" --region ${{ secrets.AWS_REGION }}
+          else
+            echo "ECR repository $repo already exists."
+          fi
+        done
+
     - name: Build & Push Backend Image
       env:
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -60,6 +71,7 @@ jobs:
       run: |
         kubectl apply -f kubernetes-files/secret.yaml
         kubectl apply -f kubernetes-files/configmap.yaml
+        kubectl apply -f kubernetes-files/sql-cm.yml
         kubectl apply -f kubernetes-files/backend-service.yml
         kubectl apply -f kubernetes-files/backend-deployment.yaml
         kubectl set image deployment/backend-deployment backend=$REGISTRY/bookshelf-backend:$TAG
