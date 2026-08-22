@@ -7,7 +7,6 @@ terraform {
     }
   }
   backend "s3" {
-    # Values are passed dynamically via -backend-config in the pipeline
     key     = "state/terraform.tfstate"
     encrypt = true
   }
@@ -30,6 +29,7 @@ module "eks" {
   source             = "../modules/eks"
   cluster_name       = var.cluster_name
   vpc_id             = module.networking.vpc_id
+  public_subnet_ids  = module.networking.public_subnet_ids
   private_subnet_ids = module.networking.private_subnet_ids
   node_instance_type = var.node_instance_type
   desired_capacity   = var.desired_capacity
