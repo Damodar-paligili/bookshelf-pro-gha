@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bookshelf-config
+data:
+  PORT: "5000"
+  DB_HOST: "mysql-service" # Replace with your RDS endpoint if using RDS
+  DB_NAME: "bookshelf_db"
+  DB_PORT: "3306"
