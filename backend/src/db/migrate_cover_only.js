@@ -1,0 +1,36 @@
+const pool = require('./pool');
+
+async function migrate() {
+  try {
+    console.log('Running database migrations...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS books (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        description TEXT,
+        cover_url VARCHAR(500),
+        user_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+    console.log('Database tables verified/created successfully.');
+    process.exit(0);
+  } catch (err) {
+    console.error('Migration failed:', err);
+    process.exit(1);
+  }
+}
+
+migrate();
