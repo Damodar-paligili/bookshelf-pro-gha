@@ -46,3 +46,37 @@ module "database" {
   db_password        = var.db_password
   environment        = var.environment
 }
+
+# ECR Repository for Backend
+resource "aws_ecr_repository" "backend" {
+  name                 = "bookshelf-backend"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  force_delete = true
+
+  tags = {
+    Environment = var.environment
+    Project     = "Bookshelf-Pro"
+  }
+}
+
+# ECR Repository for Frontend
+resource "aws_ecr_repository" "frontend" {
+  name                 = "bookshelf-frontend"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  force_delete = true
+
+  tags = {
+    Environment = var.environment
+    Project     = "Bookshelf-Pro"
+  }
+}
