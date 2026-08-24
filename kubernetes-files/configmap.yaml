@@ -4,6 +4,6 @@ metadata:
   name: bookshelf-config
 data:
   PORT: "5000"
-  DB_HOST: "terraform-20260822154052383200000006.cgzwk4oyishu.us-east-1.rds.amazonaws.com" # Replace with your RDS endpoint if using RDS
+  DB_HOST: "terraform-20260824022709322200000006.cgzwk4oyishu.us-east-1.rds.amazonaws.com" # Replace with your RDS endpoint if using RDS
   DB_NAME: "bookshelf_db"
   DB_PORT: "3306"
