@@ -12,11 +12,12 @@ An enterprise-grade, 3-tier web application (**Bookshelf Pro**) automated and de
 4. [Step 1: GitHub Repository Setup](#step-1-github-repository-setup)
 5. [Step 2: AWS IAM & GitHub Secrets Configuration](#step-2-aws-iam--github-secrets-configuration)
 6. [Step 3: Provision Infrastructure with Terraform](#step-3-provision-infrastructure-with-terraform)
-7. [Step 4: Application Build & Deployment Pipeline](#step-4-application-build--deployment-pipeline)
-8. [Step 5: Database Schema Migration](#step-5-database-schema-migration)
-9. [Step 6: How to Access & Verify the Application](#step-6-how-to-access--verify-the-application)
-10. [Useful Diagnostic & Troubleshooting Commands](#-useful-diagnostic--troubleshooting-commands)
-11. [Infrastructure Teardown (Clean-Up)](#-infrastructure-teardown-clean-up)
+7. [Step 4: Configure Application Database Endpoint](#step-4-configure-application-database-endpoint)
+8. [Step 5: Application Build & Deployment Pipeline](#step-5-application-build--deployment-pipeline)
+9. [Step 6: Database Schema Migration](#step-6-database-schema-migration)
+10. [Step 7: How to Access & Verify the Application](#step-7-how-to-access--verify-the-application)
+11. [Useful Diagnostic & Troubleshooting Commands](#-useful-diagnostic--troubleshooting-commands)
+12. [Infrastructure Teardown (Clean-Up)](#-infrastructure-teardown-clean-up)
 
 ---
 
@@ -94,10 +95,10 @@ bookshelf-pro-gha/
 
 Before running the deployment pipelines, verify you have the following ready:
 
-- An active AWS account with administrative privileges.
-- AWS CLI installed and configured locally (`aws configure`).
-- `kubectl` installed for cluster verification.
-- A GitHub account hosting the repository.
+1. An active **AWS account** with administrative privileges.
+2. **AWS CLI** installed and configured locally (`aws configure`).
+3. **kubectl** installed for cluster verification.
+4. A **GitHub account** hosting the repository.
 
 ---
 
@@ -120,9 +121,8 @@ git push -u origin main
 
 ## Step 2: AWS IAM & GitHub Secrets Configuration
 
-In your GitHub repository, open **Settings > Secrets and variables > Actions**.
-
-Click **New repository secret** and add the following four secrets:
+1. In your GitHub repository, open **Settings > Secrets and variables > Actions**.
+2. Click **New repository secret** and add the following four secrets:
 
 | Secret Name | Description | Example Value |
 |---|---|---|
@@ -137,7 +137,7 @@ Click **New repository secret** and add the following four secrets:
 
 1. Go to the **Actions** tab in your GitHub repository.
 2. Under **All workflows**, select **01 - Terraform Infrastructure Pipeline**.
-3. Click **Run workflow** > select branch `main` > choose action `apply` > click **Run workflow**.
+3. Click **Run workflow** > select branch `main` > choose `action: apply` > click **Run workflow**.
 
 **What this workflow automates:**
 
@@ -149,9 +149,43 @@ Click **New repository secret** and add the following four secrets:
 
 ---
 
-## Step 4: Application Build & Deployment Pipeline
+## Step 4: Configure Application Database Endpoint
 
-1. Once the Terraform pipeline completes, select **02 - Application CI/CD to EKS** from the Actions tab.
+Once the Terraform pipeline completes, link your newly provisioned RDS endpoint to the Kubernetes ConfigMap.
+
+1. Retrieve the live RDS MySQL endpoint using the AWS CLI:
+
+```bash
+aws rds describe-db-instances --region us-east-1 --query "DBInstances[0].Endpoint.Address" --output text
+```
+
+2. Open `kubernetes-files/configmap.yaml` and set `DB_HOST` to your RDS endpoint:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bookshelf-config
+data:
+  PORT: "5000"
+  DB_HOST: "<PASTE_YOUR_RDS_ENDPOINT_HERE>"
+  DB_NAME: "bookshelf_db"
+  DB_PORT: "3306"
+```
+
+3. Commit and push the updated ConfigMap:
+
+```bash
+git add kubernetes-files/configmap.yaml
+git commit -m "fix: update rds endpoint in configmap"
+git push origin main
+```
+
+---
+
+## Step 5: Application Build & Deployment Pipeline
+
+1. In the **Actions** tab, select **02 - Application CI/CD to EKS**.
 2. Click **Run workflow** > select branch `main` > click **Run workflow**.
 
 **What this workflow automates:**
@@ -164,11 +198,11 @@ Click **New repository secret** and add the following four secrets:
 
 ---
 
-## Step 5: Database Schema Migration
+## Step 6: Database Schema Migration
 
 Once pods are running, initialize the database tables from your local terminal.
 
-1. Update your local kubeconfig:
+1. Update your local `kubeconfig`:
 
 ```bash
 aws eks update-kubeconfig --region us-east-1 --name bookshelf-eks-cluster
@@ -180,12 +214,10 @@ aws eks update-kubeconfig --region us-east-1 --name bookshelf-eks-cluster
 kubectl get pods -l app=backend
 ```
 
-3. Execute the migration script inside an active backend pod:
+3. Execute the migration script inside the running backend deployment:
 
 ```bash
-BACKEND_POD=$(kubectl get pods -l app=backend --field-selector=status.phase=Running -o jsonpath="{.items[0].metadata.name}")
-
-kubectl exec -it $BACKEND_POD -- node src/db/migrate_cover_only.js
+kubectl exec -it deployment/backend-deployment -- node src/db/migrate_cover_only.js
 ```
 
 **Expected output:**
@@ -197,7 +229,7 @@ Database tables verified/created successfully.
 
 ---
 
-## Step 6: How to Access & Verify the Application
+## Step 7: How to Access & Verify the Application
 
 ### 1. Retrieve the public Load Balancer endpoint
 
@@ -205,7 +237,7 @@ Database tables verified/created successfully.
 kubectl get svc frontend-service
 ```
 
-Look under the `EXTERNAL-IP` column to find your AWS Load Balancer DNS name (e.g., `a1b2c3d4e5...us-east-1.elb.amazonaws.com`).
+Look under the `EXTERNAL-IP` column to find your AWS Load Balancer DNS name (e.g., `k8s-default-frontend-xxxxxx.us-east-1.elb.amazonaws.com`).
 
 Alternatively, extract only the hostname directly:
 
@@ -256,7 +288,7 @@ kubectl logs -l app=frontend --tail=100 -f
 **Test database connectivity from inside the cluster:**
 
 ```bash
-kubectl exec -it $(kubectl get pod -l app=backend --field-selector=status.phase=Running -o name | head -n 1) -- node -e "require('./src/db/pool').query('SELECT 1').then(() => console.log('Database Connection: SUCCESS')).catch(console.error)"
+kubectl exec -it deployment/backend-deployment -- node -e "require('./src/db/pool').query('SELECT 1').then(() => console.log('Database Connection: SUCCESS')).catch(console.error)"
 ```
 
 **Restart deployments:**
@@ -274,5 +306,5 @@ To completely destroy all provisioned AWS cloud resources and prevent ongoing bi
 
 1. Open your GitHub repository > **Actions** tab.
 2. Select **01 - Terraform Infrastructure Pipeline**.
-3. Click **Run workflow** > select action `destroy` > click **Run workflow**.
+3. Click **Run workflow** > select `action: destroy` > click **Run workflow**.
 4. Wait for the pipeline to finish destroying the EKS cluster, EC2 instances, RDS database, NAT Gateways, VPC, and ECR repositories.
