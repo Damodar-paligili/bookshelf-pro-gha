@@ -85,3 +85,28 @@ bookshelf-pro-gha/
 │   └── package.json
 ├── docker-compose.yaml                 # Local multi-container test configuration
 └── README.md
+
+⚙️ Prerequisites
+Before running the deployment pipelines, verify you have the following ready:
+
+An active AWS Account with administrative privileges.
+
+AWS CLI installed and configured locally (aws configure).
+
+kubectl installed for cluster verification.
+
+A GitHub Account hosting the repository.
+
+Step 1: GitHub Repository Setup
+Create a new GitHub repository named bookshelf-pro-gha.
+
+Initialize and push your project to GitHub:
+cd bookshelf-pro-gha
+git init
+git branch -M main
+git add .
+git commit -m "feat: initial commit for phase 1 cloud-native deployment"
+git remote add origin [https://github.com/](https://github.com/)<YOUR_GITHUB_USERNAME>/bookshelf-pro-gha.git
+git push -u origin main
+
+Step 2: AWS IAM & GitHub Secrets ConfigurationIn your GitHub repository, open Settings > Secrets and variables > Actions.Click New repository secret and add the following four secrets:Secret NameDescriptionExample ValueAWS_ACCESS_KEY_IDAWS IAM User Access KeyAKIAIOSFODNN7EXAMPLEAWS_SECRET_ACCESS_KEYAWS IAM User Secret KeywJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYAWS_REGIONTarget AWS Regionus-east-1EKS_CLUSTER_NAMEName of the EKS Clusterbookshelf-eks-clusterStep 3: Provision Infrastructure with TerraformGo to the Actions tab in your GitHub repository.Under All workflows, select 01 - Terraform Infrastructure Pipeline.Click Run workflow > Select branch main > Choose action: apply > Click Run workflow.What this workflow automates:Automatically provisions a globally unique S3 bucket and DynamoDB table for remote state and locking.Provisions a custom VPC, Multi-AZ Public/Private Subnets, Internet Gateway, and NAT Gateway.Deploys the Amazon EKS Cluster with managed EC2 worker nodes.Deploys the Amazon RDS MySQL Database instance.Creates the Amazon ECR repositories (bookshelf-backend and bookshelf-frontend).Step 4: Application Build & Deployment PipelineOnce the Terraform pipeline completes, select 02 - Application CI/CD to EKS from the Actions tab.Click Run workflow > Select branch main > Click Run workflow.What this workflow automates:Builds production-ready Docker container images for both backend and frontend.Pushes tagged images to Amazon ECR.Authenticates against the EKS cluster.Deploys the Kubernetes ConfigMaps, Secrets, Deployments, and Services.Executes rolling zero-downtime pod updates.Step 5: Database Schema MigrationOnce pods are running, initialize the database tables from your local terminal:Update your local kubeconfig:
